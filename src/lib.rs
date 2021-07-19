@@ -57,8 +57,8 @@ pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
     let impl_blocks = types.iter().map(|ty| {
         quote! {
             impl From<#ty> for #struct_name {
-                fn from(other: #ty) -> #struct_name {
-                    #struct_name {
+                fn from(other: #ty) -> Self {
+                    Self {
                         #(#converted_fields,)*
                     }
                 }
