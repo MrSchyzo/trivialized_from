@@ -10,12 +10,13 @@ It might reduce boilerplate under some circumstances.
     - it tries to avoid duplicate types (it does only a `String.eq` comparison to keep uniqueness);
     - this only works for `struct`s;
     - TypePaths are expected to be "trivial" (no `&`);
-- `#[Into]` to mark what fields need an `Into` conversion;
+- `#[Into]` to mark which fields need an `Into` conversion;
     - this can work for `Vec<T>`, `Option<T>`, or `T`.
+- `#[Transform(<fooPath>)]` to mark which fields need a transformation through a unary function;
     
 ## ToDo
 - make `#[From]` work for `Unions` and `Enums`;
-- create a `#[Transform(...)]` attribute for fields for calling custom functions/expressions;
 - make `#[Into]` cover other standard examples;
 - create a `#[Unhygienic(...)]` attribute for fields for unhygienic macro expression hacks;
-- better error handling (try to use `Span` and stuff).
+- **way** better error handling (try to use `Span` and stuff);
+- **way** better code aesthetics.

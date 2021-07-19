@@ -1,5 +1,9 @@
 use trivialized_from::TrivializationReady;
 
+fn zerofy(some: u8) -> u8 {
+    0
+}
+
 pub struct SubRecord {
     pub name: String,
 }
@@ -23,6 +27,7 @@ pub struct DomainSubRecord {
 #[From(Record)]
 pub struct DomainRecord {
     pub name: String,
+    #[Transform(zerofy)]
     pub age: u8,
     #[Into]
     pub maybe_record: Option<DomainSubRecord>,
@@ -47,7 +52,7 @@ mod tests {
 
         let expected: DomainRecord = DomainRecord {
             name: "Succ".to_owned(),
-            age: 3u8,
+            age: 0u8,
             maybe_record: Some(DomainSubRecord{name: "Secc".to_owned()}),
             records: vec![DomainSubRecord{name: "Sicc".to_owned()}],
             sub: DomainSubRecord{name: "Socc".to_owned()},
