@@ -1,4 +1,4 @@
-use trivialized_from::{from,DummyAttr};
+use trivialized_from::TrivializationReady;
 
 pub struct SubRecord {
     pub name: String,
@@ -12,22 +12,23 @@ pub struct Record {
     pub sub: SubRecord,
 }
 
-#[from(SubRecord)]
-#[derive(DummyAttr, PartialEq, Debug)]
+#[derive(TrivializationReady, PartialEq, Debug)]
+#[From(Record)]
+#[From(SubRecord)]
 pub struct DomainSubRecord {
     pub name: String,
 }
 
-#[from(Record)]
-#[derive(DummyAttr, PartialEq, Debug)]
+#[derive(TrivializationReady, PartialEq, Debug)]
+#[From(Record)]
 pub struct DomainRecord {
     pub name: String,
     pub age: u8,
-    #[into]
+    #[Into]
     pub maybe_record: Option<DomainSubRecord>,
-    #[into]
+    #[Into]
     pub records: Vec<DomainSubRecord>,
-    #[into]
+    #[Into]
     pub sub: DomainSubRecord,
 }
 
