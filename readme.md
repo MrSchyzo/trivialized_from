@@ -20,3 +20,10 @@ It might reduce boilerplate under some circumstances.
 - create a `#[Unhygienic(...)]` attribute for fields for unhygienic macro expression hacks;
 - **way** better error handling (try to use `Span` and stuff);
 - **way** better code aesthetics.
+
+### Demo
+Install `cargo-expand` and then:
+```bash
+cargo expand --test example
+```
+It outputs `tests/example.rs` expanded version. You will see what the macro generates.
