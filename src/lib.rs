@@ -3,11 +3,12 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn;
 use syn::{Meta, NestedMeta, Path, Data};
+use std::collections::HashSet;
 
 #[proc_macro_derive(TrivializationReady, attributes(Into, From))]
 pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
     let derive_input: syn::DeriveInput = syn::parse(structure).unwrap();
-    let types: Vec<syn::Type> = derive_input.attrs.iter()
+    let types: HashSet<String> = derive_input.attrs.iter()
         .filter(|a| as_name(&a.path).eq("From"))
         .map(|a| a.parse_meta())
             .map(|meta| match meta {
@@ -18,7 +19,6 @@ pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
             _ => panic!("Unrecognized Meta"),
         })
         .flatten()
-        .map(|s| syn::parse_str::<syn::Type>(s.as_str()).unwrap())
         .collect();
 
     let struct_name = &derive_input.ident;
@@ -55,9 +55,10 @@ pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
         }
     }).collect();
     let impl_blocks = types.iter().map(|ty| {
+        let tokenizable_type = syn::parse_str::<syn::Type>(ty).unwrap();
         quote! {
-            impl From<#ty> for #struct_name {
-                fn from(other: #ty) -> Self {
+            impl From<#tokenizable_type> for #struct_name {
+                fn from(other: #tokenizable_type) -> Self {
                     Self {
                         #(#converted_fields,)*
                     }
