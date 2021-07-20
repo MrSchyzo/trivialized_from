@@ -159,8 +159,8 @@ fn types_to_convert(derive_input: &DeriveInput) -> Result<Vec<Type>, Vec<ParseEr
     results
         .into_iter()
         .filter_map(Result::ok)
-        .filter_map(|x| x)
-        .reduce(|a, b| a.merge(b))
+        .filter_map(std::convert::identity)
+        .reduce(FromMetadata::merge)
         .unwrap_or_default()
         .types()
 }
