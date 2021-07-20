@@ -4,10 +4,7 @@ use trivialized_from::TrivializationReady;
 enum ExampleEnum {
     Empty,
     WithSubRecord(ExampleSubRecord),
-    WithAgeAndRecord(
-        u8,
-        ExampleSubRecord,
-    )
+    WithAgeAndRecord(u8, ExampleSubRecord),
 }
 
 #[allow(unused)]
@@ -17,11 +14,7 @@ enum ExampleDomainEnum {
     Empty,
     #[Into]
     WithSubRecord(ExampleSubRecord),
-    WithAgeAndRecord(
-        u8,
-        #[Into]
-        ExampleSubRecord,
-    )
+    WithAgeAndRecord(u8, #[Into] ExampleSubRecord),
 }
 
 #[allow(unused)]
