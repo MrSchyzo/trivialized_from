@@ -13,13 +13,17 @@ It might reduce boilerplate under some circumstances.
 - `#[Into]` to mark which fields need an `Into` conversion;
     - this can work for `Vec<T>`, `Option<T>`, or `T`.
 - `#[Transform(<fooPath>)]` to mark which fields need a transformation through a unary function;
+- make `#[From]` work for `Enums`
+    - `#[Into]`, and `#[Transform]` are not implemented yet.
     
 ## ToDo
-- make `#[From]` work for `Unions` and `Enums`;
+- implement `#[Into]` for enum variants and enum variant fields (semantic difference is not disclosed);
+- implement `#[Transform]` for enum variants and enum variant fields (semantic difference is not disclosed);
 - make `#[Into]` cover other standard examples;
 - create a `#[Unhygienic(...)]` attribute for fields for unhygienic macro expression hacks;
 - **way** better error handling (try to use `Span` and stuff);
-- **way** better code aesthetics.
+- **way** better code aesthetics;
+- remove all metadata once the macro has finished its work.
 
 ### Demo
 Install `cargo-expand` and then:

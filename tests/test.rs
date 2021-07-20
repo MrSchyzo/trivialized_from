@@ -1,9 +1,32 @@
 use trivialized_from::TrivializationReady;
 
-fn zerofy(some: u8) -> u8 {
+fn zerofy(_: u8) -> u8 {
     0
 }
 
+pub enum Enum {
+    Empty,
+    WithSubRecord(SubRecord),
+    WithAgeAndRecord(
+        u8,
+        SubRecord,
+    )
+}
+
+#[derive(TrivializationReady, Debug, PartialEq)]
+#[From(Enum)]
+pub enum DomainEnum {
+    Empty,
+    #[Into]
+    WithSubRecord(SubRecord),
+    WithAgeAndRecord(
+        u8,
+        #[Into]
+        SubRecord,
+    )
+}
+
+#[derive(Debug, PartialEq)]
 pub struct SubRecord {
     pub name: String,
 }
@@ -14,6 +37,7 @@ pub struct Record {
     pub maybe_record: Option<SubRecord>,
     pub records: Vec<SubRecord>,
     pub sub: SubRecord,
+    pub e: Enum,
 }
 
 #[derive(TrivializationReady, PartialEq, Debug)]
@@ -35,6 +59,8 @@ pub struct DomainRecord {
     pub records: Vec<DomainSubRecord>,
     #[Into]
     pub sub: DomainSubRecord,
+    #[Into]
+    pub e: DomainEnum,
 }
 
 #[cfg(test)]
@@ -48,6 +74,7 @@ mod tests {
             maybe_record: Some(SubRecord{name: "Secc".to_owned()}),
             records: vec![SubRecord{name: "Sicc".to_owned()}],
             sub: SubRecord{name: "Socc".to_owned()},
+            e: Enum::WithAgeAndRecord(5u8, SubRecord{name: "Sacc".to_owned()})
         }.into();
 
         let expected: DomainRecord = DomainRecord {
@@ -56,6 +83,7 @@ mod tests {
             maybe_record: Some(DomainSubRecord{name: "Secc".to_owned()}),
             records: vec![DomainSubRecord{name: "Sicc".to_owned()}],
             sub: DomainSubRecord{name: "Socc".to_owned()},
+            e: DomainEnum::WithAgeAndRecord(5u8, SubRecord{name: "Sacc".to_owned()})
         };
 
         assert_eq!(expected, result);

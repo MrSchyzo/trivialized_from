@@ -2,7 +2,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn;
-use syn::{Meta, NestedMeta, Path, Data, Type, DeriveInput};
+use syn::{Meta, NestedMeta, Path, Data, Type, DeriveInput, DataStruct, DataEnum};
 use std::collections::HashSet;
 use quote::__private::Ident;
 use syn::__private::TokenStream2;
@@ -11,23 +11,52 @@ use syn::__private::TokenStream2;
 pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
     let derive_input: syn::DeriveInput = syn::parse(structure).unwrap();
 
-    let types: Vec<syn::Type> = types_to_be_converted_from(&derive_input);
-    let struct_name = &derive_input.ident;
-    let structure = if let Data::Struct(s) = derive_input.data {
-        s
-    } else {
-        panic!("Only struct is supported!")
-    };
+    let derive_name = &derive_input.ident;
+    let types_to_convert: Vec<syn::Type> = types_to_convert(&derive_input);
 
-    let fields = if let syn::Fields::Named(ref named) = structure.fields {
-        named
-    } else {
-        unimplemented!("Need named fields in struct!")
-    };
+    match derive_input.data {
+        Data::Struct(s) => handle_struct_case(types_to_convert, derive_name, s),
+        Data::Enum(e) => handle_enum_case(types_to_convert, derive_name, e),
+        Data::Union(_) => panic!("TrivializationReady works only for `struct`s and `enum`s"),
+    }
+}
 
-    let field_mappings: Vec<TokenStream2> = fields.named.iter().map(|f| {
+fn handle_enum_case(types_to_convert: Vec<Type>, derive_name: &Ident, enumeration: DataEnum) -> TokenStream {
+    let impl_blocks = types_to_convert.iter().map(|ty| {
+        let variant_mappings = enumeration.variants.iter().map(|v| {
+            let variant_name = &v.ident;
+            let mut index = 0;
+            let field_mappings = v.fields.iter().map(|_f| {
+                let id = syn::parse_str::<syn::Ident>(format!("field{}", index).as_str()).unwrap();
+                index+=1;
+                quote!{#id}
+            }).collect::<Vec<_>>();
+            if field_mappings.len() > 0 {
+                quote!{#ty::#variant_name(#(#field_mappings,)*) => Self::#variant_name(#(#field_mappings,)*)}
+            } else {
+                quote!{#ty::#variant_name => Self::#variant_name}
+            }
+
+        }).collect::<Vec<_>>();
+
+        quote! {
+            impl From<#ty> for #derive_name {
+                fn from(other: #ty) -> Self {
+                    match other {
+                        #(#variant_mappings,)*
+                    }
+                }
+            }
+        }
+    });
+
+    (quote! {#(#impl_blocks)*}).into()
+}
+
+fn handle_struct_case(types_to_convert: Vec<Type>, derive_name: &Ident, structure: DataStruct) -> TokenStream {
+    let field_mappings: Vec<TokenStream2> = structure.fields.iter().map(|f| {
         let name = f.ident.as_ref().unwrap();
-        let type_path = if let syn::Type::Path(syn::TypePath {path: p, ..}) = &f.ty {
+        let type_path = if let syn::Type::Path(syn::TypePath { path: p, .. }) = &f.ty {
             p.clone()
         } else {
             unimplemented!("Need a TypePath!")
@@ -48,17 +77,18 @@ pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
             quote! {#name: #call(other.#name)}
         } else if attrs.iter().any(|a| as_name(&a.path).eq("Into")) {
             if as_name(&type_path).ends_with("Option") {
-                quote!{#name: other.#name.map(Into::into)}
+                quote! {#name: other.#name.map(Into::into)}
             } else if as_name(&type_path).ends_with("Vec") {
-                quote!{#name: other.#name.into_iter().map(Into::into).collect()}
+                quote! {#name: other.#name.into_iter().map(Into::into).collect()}
             } else {
-                quote!{#name: other.#name.into()}
+                quote! {#name: other.#name.into()}
             }
         } else {
-            quote!{#name: other.#name}
+            quote! {#name: other.#name}
         }
     }).collect();
-    render_struct_implementors(types, struct_name, field_mappings)
+
+    render_struct_implementors(types_to_convert, derive_name, field_mappings)
 }
 
 fn render_struct_implementors<Field: ToTokens>(types: Vec<Type>, struct_name: &Ident, field_mappings: Vec<Field>) -> TokenStream {
@@ -78,7 +108,7 @@ fn render_struct_implementors<Field: ToTokens>(types: Vec<Type>, struct_name: &I
 }
 
 //TODO: better error handling, now it's full of unwrap and panics... ew
-fn types_to_be_converted_from(derive_input: &DeriveInput) -> Vec<Type> {
+fn types_to_convert(derive_input: &DeriveInput) -> Vec<Type> {
     derive_input.attrs.iter()
         .filter(|a| as_name(&a.path).eq("From"))
         .map(|a| a.parse_meta())

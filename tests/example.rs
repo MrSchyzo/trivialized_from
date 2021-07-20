@@ -1,38 +1,70 @@
 use trivialized_from::TrivializationReady;
 
-pub struct SubRecord {
+#[allow(unused)]
+enum ExampleEnum {
+    Empty,
+    WithSubRecord(ExampleSubRecord),
+    WithAgeAndRecord(
+        u8,
+        ExampleSubRecord,
+    )
+}
+
+#[allow(unused)]
+#[derive(TrivializationReady)]
+#[From(ExampleEnum)]
+enum ExampleDomainEnum {
+    Empty,
+    #[Into]
+    WithSubRecord(ExampleSubRecord),
+    WithAgeAndRecord(
+        u8,
+        #[Into]
+        ExampleSubRecord,
+    )
+}
+
+#[allow(unused)]
+struct ExampleSubRecord {
     pub name: String,
 }
 
-pub struct Record {
+#[allow(unused)]
+struct ExampleRecord {
     pub name: String,
     pub age: u8,
-    pub maybe_record: Option<SubRecord>,
-    pub records: Vec<SubRecord>,
-    pub sub: SubRecord,
+    pub maybe_record: Option<ExampleSubRecord>,
+    pub records: Vec<ExampleSubRecord>,
+    pub sub: ExampleSubRecord,
+    pub e: ExampleEnum,
 }
 
+#[allow(unused)]
 #[derive(TrivializationReady)]
-#[From(Record)]
-#[From(SubRecord)]
-pub struct DomainSubRecord {
+#[From(ExampleRecord)]
+#[From(ExampleSubRecord)]
+struct ExampleDomainSubRecord {
     pub name: String,
 }
 
+#[allow(unused)]
 #[derive(TrivializationReady)]
-#[From(Record)]
-pub struct DomainRecord {
+#[From(ExampleRecord)]
+struct ExampleDomainRecord {
     pub name: String,
-    #[Transform(zerofy)]
+    #[Transform(example_zerofy)]
     pub age: u8,
     #[Into]
-    pub maybe_record: Option<DomainSubRecord>,
+    pub maybe_record: Option<ExampleDomainSubRecord>,
     #[Into]
-    pub records: Vec<DomainSubRecord>,
+    pub records: Vec<ExampleDomainSubRecord>,
     #[Into]
-    pub sub: DomainSubRecord,
+    pub sub: ExampleDomainSubRecord,
+    #[Into]
+    pub e: ExampleDomainEnum,
 }
 
-fn zerofy(_: u8) -> u8 {
+#[allow(unused)]
+fn example_zerofy(_: u8) -> u8 {
     0
 }
