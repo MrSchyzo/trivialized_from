@@ -3,7 +3,8 @@ mod metadata;
 extern crate proc_macro;
 extern crate proc_macro_error;
 
-use metadata::{as_name, FromMetadata, ParseError};
+use metadata::attributes::from::FromMetadata;
+use metadata::{as_name, ParseError};
 use proc_macro::TokenStream;
 use proc_macro_error::{abort_call_site, emit_error, proc_macro_error};
 use quote::__private::Ident;
@@ -38,6 +39,7 @@ pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
     }
 }
 
+//TODO: implement Into and Transform
 fn handle_enum_case(
     types_to_convert: Vec<Type>,
     derive_name: &Ident,
