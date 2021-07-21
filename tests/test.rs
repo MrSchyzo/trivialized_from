@@ -4,13 +4,21 @@ fn zerofy(_: u8) -> u8 {
     0
 }
 
+struct Wrapping {
+    age: u8,
+}
+
+#[derive(TrivializationReady, PartialEq, Debug)]
+#[From(Wrapping)]
+struct DomainWrapping {
+    #[MacroTransform(vec)]
+    age: Vec<u8>,
+}
+
 pub enum Enum {
     Empty,
     WithSubRecord(SubRecord),
-    WithAgeAndRecord(
-        u8,
-        SubRecord,
-    )
+    WithAgeAndRecord(u8, SubRecord),
 }
 
 #[derive(TrivializationReady, Debug, PartialEq)]
@@ -19,11 +27,7 @@ pub enum DomainEnum {
     Empty,
     #[Into]
     WithSubRecord(SubRecord),
-    WithAgeAndRecord(
-        u8,
-        #[Into]
-        SubRecord,
-    )
+    WithAgeAndRecord(u8, #[Into] SubRecord),
 }
 
 #[derive(Debug, PartialEq)]
@@ -71,20 +75,52 @@ mod tests {
         let result: DomainRecord = Record {
             name: "Succ".to_owned(),
             age: 3u8,
-            maybe_record: Some(SubRecord{name: "Secc".to_owned()}),
-            records: vec![SubRecord{name: "Sicc".to_owned()}],
-            sub: SubRecord{name: "Socc".to_owned()},
-            e: Enum::WithAgeAndRecord(5u8, SubRecord{name: "Sacc".to_owned()})
-        }.into();
+            maybe_record: Some(SubRecord {
+                name: "Secc".to_owned(),
+            }),
+            records: vec![SubRecord {
+                name: "Sicc".to_owned(),
+            }],
+            sub: SubRecord {
+                name: "Socc".to_owned(),
+            },
+            e: Enum::WithAgeAndRecord(
+                5u8,
+                SubRecord {
+                    name: "Sacc".to_owned(),
+                },
+            ),
+        }
+        .into();
 
         let expected: DomainRecord = DomainRecord {
             name: "Succ".to_owned(),
             age: 0u8,
-            maybe_record: Some(DomainSubRecord{name: "Secc".to_owned()}),
-            records: vec![DomainSubRecord{name: "Sicc".to_owned()}],
-            sub: DomainSubRecord{name: "Socc".to_owned()},
-            e: DomainEnum::WithAgeAndRecord(5u8, SubRecord{name: "Sacc".to_owned()})
+            maybe_record: Some(DomainSubRecord {
+                name: "Secc".to_owned(),
+            }),
+            records: vec![DomainSubRecord {
+                name: "Sicc".to_owned(),
+            }],
+            sub: DomainSubRecord {
+                name: "Socc".to_owned(),
+            },
+            e: DomainEnum::WithAgeAndRecord(
+                5u8,
+                SubRecord {
+                    name: "Sacc".to_owned(),
+                },
+            ),
         };
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn it_works_2() {
+        let result: DomainWrapping = Wrapping { age: 3u8 }.into();
+
+        let expected: DomainWrapping = DomainWrapping { age: vec![3u8] };
 
         assert_eq!(expected, result);
     }

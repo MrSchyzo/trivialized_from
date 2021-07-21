@@ -12,11 +12,13 @@ It might reduce boilerplate under some circumstances.
     - TypePaths are expected to be "trivial" (no `&`);
 - `#[Into]` to mark which fields need an `Into` conversion;
     - this can work for `Vec<T>`, `Option<T>`, or `T`.
-- `#[Transform(<fooPath>)]` to mark which fields need a transformation through a unary function;
-- make `#[From]` work for `Enums`
+- `#[Transform(<fooPath>)]` to mark which fields need a transformation through a unary function or named unary tuple (useful for `lift` values into `Option`);
+- `#[MacroTransform(<macroPath>)]` to mark which fields will be wrapped inside a macro call (useful for `vec![]`ing single values);
+- `#[From]` for `Enums`
     - `#[Into]`, and `#[Transform]` are not implemented yet.
     
 ## ToDo
+- implement `#[Into]` and `#[Transform]` together, when possible;
 - implement `#[Into]` for enum variants and enum variant fields (semantic difference is not disclosed);
 - implement `#[Transform]` for enum variants and enum variant fields (semantic difference is not disclosed);
 - make `#[Into]` cover other standard examples;

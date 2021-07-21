@@ -14,7 +14,7 @@ use syn::__private::TokenStream2;
 use syn::{Data, DataEnum, DataStruct, DeriveInput, Meta, NestedMeta, Type};
 
 #[proc_macro_error]
-#[proc_macro_derive(TrivializationReady, attributes(Into, From, Transform))]
+#[proc_macro_derive(TrivializationReady, attributes(Into, From, Transform, MacroTransform))]
 pub fn derive_trivialization_ready(structure: TokenStream) -> TokenStream {
     let derive_input: syn::DeriveInput = match syn::parse::<syn::DeriveInput>(structure) {
         Ok(input) => input,
@@ -48,6 +48,17 @@ fn handle_enum_case(
     let impl_blocks = types_to_convert.iter().map(|ty| {
         let variant_mappings = enumeration.variants.iter().map(|v| {
             let variant_name = &v.ident;
+            //If variant Transform, just other::variant(_) => transform(e)
+            //If variant Into, other::variant(f0, ..., fn) => {= all fields have #[Into]}
+            //If field Transform, (f0, transform(f0))
+            //If field Into, and f0 = 
+            /*
+            let (intos, errors): (Vec<_>, Vec<_>) = v.attrs.iter().map(IntoMetadata::maybe_from).partition(Result::is_ok);
+            
+            if errors.len() > 0 {
+                return Err(errors.into_iter().filter_map(Result::err).collect())
+            }
+            */
             let mut index = 0;
             let field_mappings = v.fields.iter().map(|_f| {
                 let id = syn::parse_str::<syn::Ident>(format!("field{}", index).as_str()).unwrap();
@@ -75,6 +86,7 @@ fn handle_enum_case(
     (quote! {#(#impl_blocks)*}).into()
 }
 
+//TODO: handle attributes better
 fn handle_struct_case(
     types_to_convert: Vec<Type>,
     derive_name: &Ident,
@@ -107,6 +119,22 @@ fn handle_struct_case(
                 };
                 let call = syn::parse_str::<syn::ExprPath>(&foo).unwrap();
                 quote! {#name: #call(other.#name)}
+            } else if attrs.iter().any(|a| as_name(&a.path).eq("MacroTransform")) {
+                let att = attrs
+                    .iter()
+                    .find(|a| as_name(&a.path).eq("MacroTransform"))
+                    .unwrap();
+                let foo = if let Ok(Meta::List(l)) = att.parse_meta() {
+                    if let NestedMeta::Meta(Meta::Path(ref p)) = l.nested.first().unwrap() {
+                        as_name(p)
+                    } else {
+                        panic!("Unexpected Meta in attribute Transform")
+                    }
+                } else {
+                    panic!("Unexpected Meta type for attribute Transform")
+                };
+                let call = syn::parse_str::<syn::ExprPath>(&foo).unwrap();
+                quote! {#name: #call!(other.#name)}
             } else if attrs.iter().any(|a| as_name(&a.path).eq("Into")) {
                 if as_name(&type_path).ends_with("Option") {
                     quote! {#name: other.#name.map(Into::into)}
@@ -145,10 +173,7 @@ fn render_struct_implementors<Field: ToTokens>(
 }
 
 fn types_to_convert(derive_input: &DeriveInput) -> Result<Vec<Type>, Vec<ParseError>> {
-    let (results, errors): (
-        Vec<Result<Option<FromMetadata>, Vec<ParseError>>>,
-        Vec<Result<Option<FromMetadata>, Vec<ParseError>>>,
-    ) = derive_input
+    let (results, errors): (Vec<_>, Vec<_>) = derive_input
         .attrs
         .iter()
         .map(FromMetadata::maybe_from)

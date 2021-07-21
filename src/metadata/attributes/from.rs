@@ -66,7 +66,7 @@ impl FromMetadata {
             }])
         }?;
 
-        let extracted_types = meta_list.nested.iter().map(|nested_meta| {
+        let extracted_types: Vec<_> = meta_list.nested.iter().map(|nested_meta| {
             let meta = match nested_meta {
                 NestedMeta::Meta(meta) => Ok(meta),
                 NestedMeta::Lit(lit) => Err(ParseError {
@@ -85,27 +85,22 @@ impl FromMetadata {
                     span: meta.span().clone()
                 })
             }
-        }).collect::<Vec<Result<TypeDetection, ParseError>>>();
+        }).collect();
 
-        let (types, errors): (
-            Vec<Result<TypeDetection, ParseError>>,
-            Vec<Result<TypeDetection, ParseError>>,
-        ) = extracted_types.into_iter().partition(Result::is_ok);
+        let (types, errors): (Vec<_>, Vec<_>) =
+            extracted_types.into_iter().partition(Result::is_ok);
 
         if errors.len() > 0 {
             return Err(errors.into_iter().filter_map(Result::err).collect());
         }
 
         Ok(Some(FromMetadata {
-            type_detections: types
-                .into_iter()
-                .filter_map(Result::ok)
-                .collect::<HashSet<TypeDetection>>(),
+            type_detections: types.into_iter().filter_map(Result::ok).collect(),
         }))
     }
 
     pub(crate) fn types(&self) -> Result<Vec<syn::Type>, Vec<ParseError>> {
-        let result_types = self
+        let result_types: Vec<_> = self
             .type_detections
             .iter()
             .map(|detection| {
@@ -114,12 +109,9 @@ impl FromMetadata {
                     span: detection.span.clone(),
                 })
             })
-            .collect::<Vec<Result<syn::Type, ParseError>>>();
+            .collect();
 
-        let (types, errors): (
-            Vec<Result<syn::Type, ParseError>>,
-            Vec<Result<syn::Type, ParseError>>,
-        ) = result_types.into_iter().partition(Result::is_ok);
+        let (types, errors): (Vec<_>, Vec<_>) = result_types.into_iter().partition(Result::is_ok);
 
         if errors.len() > 0 {
             return Err(errors.into_iter().filter_map(Result::err).collect());

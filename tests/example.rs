@@ -8,6 +8,19 @@ enum ExampleEnum {
 }
 
 #[allow(unused)]
+struct A {
+    age: u8,
+}
+
+#[derive(TrivializationReady)]
+#[allow(unused)]
+#[From(A)]
+struct B {
+    #[MacroTransform(vec)]
+    age: Vec<u8>,
+}
+
+#[allow(unused)]
 #[derive(TrivializationReady)]
 #[From(ExampleEnum)]
 enum ExampleDomainEnum {
