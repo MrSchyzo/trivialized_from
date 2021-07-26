@@ -2,12 +2,12 @@ use crate::metadata::attributes::into::IntoMetadata;
 use crate::metadata::attributes::macro_transform::MacroTransformMetadata;
 use crate::metadata::attributes::transform::TransformMetadata;
 use crate::metadata::{as_name, ParseError};
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::hash::{Hash, Hasher};
-use syn::spanned::Spanned;
-use syn::Field;
 use syn::__private::TokenStream2;
+use syn::spanned::Spanned;
+use syn::{Attribute, Field};
 
 pub(crate) mod from;
 pub(crate) mod into;
@@ -68,7 +68,7 @@ pub(crate) fn render_field_expression(field: &Field) -> Result<TokenStream2, Vec
     Ok(quote! {#name: (#field_transform_expression)})
 }
 
-fn render_field_transform_expression(
+pub(crate) fn render_field_transform_expression(
     name: &Ident,
     field: &Field,
 ) -> Result<TokenStream2, Vec<ParseError>> {
@@ -81,9 +81,21 @@ fn render_field_transform_expression(
         }]);
     };
 
-    Ok(compute_transformations(field)?
+    Ok(compose_transformations(
+        quote! {other.#name},
+        &compute_transformations(field)?,
+        &type_path,
+    ))
+}
+
+pub(crate) fn compose_transformations(
+    start: TokenStream,
+    transformations: &Vec<FieldTransformation>,
+    type_path: &str,
+) -> TokenStream {
+    transformations
         .iter()
-        .fold(quote! {other.#name}, |tokens, transform| match transform {
+        .fold(start, |tokens, transform| match transform {
             FieldTransformation::Nothing => tokens,
             FieldTransformation::Into(_) => {
                 if type_path.ends_with("Vec") || type_path.ends_with("HashSet") {
@@ -102,12 +114,42 @@ fn render_field_transform_expression(
                 let p = foo.transformation_path().unwrap();
                 quote! {#p!(#tokens)}
             }
-        }))
+        })
 }
 
-fn compute_transformations(field: &Field) -> Result<Vec<FieldTransformation>, Vec<ParseError>> {
+pub(crate) fn compute_transformations(
+    field: &Field,
+) -> Result<Vec<FieldTransformation>, Vec<ParseError>> {
     let attrs = &field.attrs;
-    let transformations: Vec<Result<FieldTransformation, ParseError>> = attrs
+    let transformations: Vec<Result<FieldTransformation, ParseError>> =
+        parse_transformations(attrs);
+
+    let (impure_results, errors): (Vec<_>, Vec<_>) =
+        transformations.into_iter().partition(Result::is_ok);
+
+    let results = impure_results
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|r| !(matches!(r, FieldTransformation::Nothing)))
+        .collect::<Vec<_>>();
+
+    if errors.len() > 0 {
+        Err(errors.into_iter().filter_map(Result::err).collect())
+    } else if are_results_invalid(&results) {
+        Err(vec![ParseError {
+            message: "Field can be decorated at most one #[Into] and it must be the first one"
+                .to_owned(),
+            span: field.span().clone(),
+        }])
+    } else {
+        Ok(results)
+    }
+}
+
+pub(crate) fn parse_transformations(
+    attrs: &Vec<Attribute>,
+) -> Vec<Result<FieldTransformation, ParseError>> {
+    attrs
         .iter()
         .map(|a| {
             let into_result = IntoMetadata::maybe_from(a).map(|o| o.map(FieldTransformation::Into));
@@ -136,28 +178,7 @@ fn compute_transformations(field: &Field) -> Result<Vec<FieldTransformation>, Ve
                 _ => Ok(FieldTransformation::Nothing),
             }
         })
-        .collect();
-
-    let (impure_results, errors): (Vec<_>, Vec<_>) =
-        transformations.into_iter().partition(Result::is_ok);
-
-    let results = impure_results
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|r| !(matches!(r, FieldTransformation::Nothing)))
-        .collect::<Vec<_>>();
-
-    if errors.len() > 0 {
-        Err(errors.into_iter().filter_map(Result::err).collect())
-    } else if are_results_invalid(&results) {
-        Err(vec![ParseError {
-            message: "Field can be decorated at most one #[Into] and it must be the first one"
-                .to_owned(),
-            span: field.span().clone(),
-        }])
-    } else {
-        Ok(results)
-    }
+        .collect()
 }
 
 fn are_results_invalid(results: &Vec<FieldTransformation>) -> bool {

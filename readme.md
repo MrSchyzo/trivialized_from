@@ -15,20 +15,25 @@ It might reduce boilerplate under some circumstances.
 - `#[Transform(<fooPath>)]` to mark which fields need a transformation through a unary function or named unary tuple (useful for `lift` values into `Option`);
 - `#[MacroTransform(<macroPath>)]` to mark which fields will be wrapped inside a macro call (useful for `vec![]`ing single values);
 - `#[From]` for `Enums`
-    - `#[Into]`, and `#[Transform]` are not implemented yet.
+- `#[Into]` for `Enums`:
+  - marking the variant propagates the `#[Into]` to the subfields below
+  - marking the single subfield is like marking a struct field
+  - marking both causes an error for multiple occurrences of `#[Into]`
+- `#[Transform]` and `#[MacroTransform]` for `Enums`:
+  - marking the variant applies the transformation chain to the entire enum value
+  - marking the single subfield is like marking a struct field
+  - marking variant has precedence over marking the subfield
 - Attribute order and number of occurrences matters:
   - `#[Into]` must be unique and the first one, if it occurs
   - `#[Transform]` and `#[MacroTransform]` can appear multiple times; the sooner they appear, the inner they result
     - for instance: `#[Transform(a)] #[Transform(b)] #[Transform(c)]` results in `c(b(a(<expr>)))`
     
 ## ToDo
-- implement `#[Into]` for enum variants and enum variant fields (semantic difference is not disclosed);
-- implement `#[Transform]` for enum variants and enum variant fields (semantic difference is not disclosed);
 - make `#[Into]` cover other standard examples;
 - create a `#[Unhygienic(...)]` attribute for fields for unhygienic macro expression hacks;
 - **way** better error handling (try to use `Span` and stuff); `<-- In progress`
 - **way** better code aesthetics; `<-- in kinda progress`
-- remove all metadata once the macro has finished its work. `<-- Can I really do it?`
+- remove all metadata once the macro has finished its work. `<-- Can/Should I really do it?`
 
 ### Demo
 Install `cargo-expand` and then:
