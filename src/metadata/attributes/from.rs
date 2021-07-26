@@ -1,46 +1,15 @@
+use crate::metadata::attributes::PathDetection;
 use crate::metadata::{as_name, ParseError};
-use proc_macro2::Span;
 use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
 use syn::spanned::Spanned;
 use syn::{Attribute, Meta, NestedMeta};
 
-#[derive(Clone)]
-struct TypeDetection {
-    pub stringified: String,
-    pub span: Span,
-}
-
-impl PartialEq for TypeDetection {
-    fn eq(&self, other: &Self) -> bool {
-        (&self.stringified).eq(&other.stringified)
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        (&self.stringified).ne(&other.stringified)
-    }
-}
-
-impl Eq for TypeDetection {}
-
-impl Hash for TypeDetection {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.stringified.hash(state)
-    }
-
-    fn hash_slice<H: Hasher>(data: &[Self], state: &mut H)
-    where
-        Self: Sized,
-    {
-        data.iter().for_each(|detection| detection.hash(state))
-    }
-}
-
 #[derive(Default)]
 pub(crate) struct FromMetadata {
-    type_detections: HashSet<TypeDetection>,
+    path_detections: HashSet<PathDetection>,
 }
 
+//TODO: refactor, see TransformMetadata
 impl FromMetadata {
     pub(crate) fn maybe_from(attr: &Attribute) -> Result<Option<Self>, Vec<ParseError>> {
         if as_name(&attr.path).ne("From") {
@@ -76,7 +45,7 @@ impl FromMetadata {
             }?;
 
             match meta {
-                Meta::Path(ref path) => Ok(TypeDetection {
+                Meta::Path(ref path) => Ok(PathDetection {
                     stringified: as_name(&path),
                     span: path.span().clone()
                 }),
@@ -95,13 +64,13 @@ impl FromMetadata {
         }
 
         Ok(Some(FromMetadata {
-            type_detections: types.into_iter().filter_map(Result::ok).collect(),
+            path_detections: types.into_iter().filter_map(Result::ok).collect(),
         }))
     }
 
     pub(crate) fn types(&self) -> Result<Vec<syn::Type>, Vec<ParseError>> {
         let result_types: Vec<_> = self
-            .type_detections
+            .path_detections
             .iter()
             .map(|detection| {
                 syn::parse_str::<syn::Type>(&detection.stringified).map_err(|e| ParseError {
@@ -122,10 +91,10 @@ impl FromMetadata {
 
     pub(crate) fn merge(self, other: Self) -> Self {
         Self {
-            type_detections: self
-                .type_detections
+            path_detections: self
+                .path_detections
                 .into_iter()
-                .chain(other.type_detections)
+                .chain(other.path_detections)
                 .collect(),
         }
     }

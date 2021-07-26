@@ -3,15 +3,15 @@ mod metadata;
 extern crate proc_macro;
 extern crate proc_macro_error;
 
+use crate::metadata::attributes::render_field_expression;
 use metadata::attributes::from::FromMetadata;
-use metadata::{as_name, ParseError};
+use metadata::ParseError;
 use proc_macro::TokenStream;
 use proc_macro_error::{abort_call_site, emit_error, proc_macro_error};
 use quote::__private::Ident;
 use quote::{quote, ToTokens};
 use syn;
-use syn::__private::TokenStream2;
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Meta, NestedMeta, Type};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Type};
 
 #[proc_macro_error]
 #[proc_macro_derive(TrivializationReady, attributes(Into, From, Transform, MacroTransform))]
@@ -86,70 +86,33 @@ fn handle_enum_case(
     (quote! {#(#impl_blocks)*}).into()
 }
 
-//TODO: handle attributes better
 fn handle_struct_case(
     types_to_convert: Vec<Type>,
     derive_name: &Ident,
     structure: DataStruct,
 ) -> TokenStream {
-    let field_mappings: Vec<TokenStream2> = structure
+    let (mappings, errors): (Vec<_>, Vec<_>) = structure
         .fields
         .iter()
-        .map(|f| {
-            let name = f.ident.as_ref().unwrap();
-            let type_path = if let syn::Type::Path(syn::TypePath { path: p, .. }) = &f.ty {
-                p.clone()
-            } else {
-                unimplemented!("Need a TypePath!")
-            };
-            let attrs = &f.attrs;
-            if attrs.iter().any(|a| as_name(&a.path).eq("Transform")) {
-                let att = attrs
-                    .iter()
-                    .find(|a| as_name(&a.path).eq("Transform"))
-                    .unwrap();
-                let foo = if let Ok(Meta::List(l)) = att.parse_meta() {
-                    if let NestedMeta::Meta(Meta::Path(ref p)) = l.nested.first().unwrap() {
-                        as_name(p)
-                    } else {
-                        panic!("Unexpected Meta in attribute Transform")
-                    }
-                } else {
-                    panic!("Unexpected Meta type for attribute Transform")
-                };
-                let call = syn::parse_str::<syn::ExprPath>(&foo).unwrap();
-                quote! {#name: #call(other.#name)}
-            } else if attrs.iter().any(|a| as_name(&a.path).eq("MacroTransform")) {
-                let att = attrs
-                    .iter()
-                    .find(|a| as_name(&a.path).eq("MacroTransform"))
-                    .unwrap();
-                let foo = if let Ok(Meta::List(l)) = att.parse_meta() {
-                    if let NestedMeta::Meta(Meta::Path(ref p)) = l.nested.first().unwrap() {
-                        as_name(p)
-                    } else {
-                        panic!("Unexpected Meta in attribute Transform")
-                    }
-                } else {
-                    panic!("Unexpected Meta type for attribute Transform")
-                };
-                let call = syn::parse_str::<syn::ExprPath>(&foo).unwrap();
-                quote! {#name: #call!(other.#name)}
-            } else if attrs.iter().any(|a| as_name(&a.path).eq("Into")) {
-                if as_name(&type_path).ends_with("Option") {
-                    quote! {#name: other.#name.map(Into::into)}
-                } else if as_name(&type_path).ends_with("Vec") {
-                    quote! {#name: other.#name.into_iter().map(Into::into).collect()}
-                } else {
-                    quote! {#name: other.#name.into()}
-                }
-            } else {
-                quote! {#name: other.#name}
-            }
-        })
-        .collect();
+        .map(render_field_expression)
+        .partition(Result::is_ok);
 
-    render_struct_implementors(types_to_convert, derive_name, field_mappings)
+    if errors.len() > 0 {
+        errors
+            .into_iter()
+            .filter_map(Result::err)
+            .flat_map(|errs| errs)
+            .for_each(|e| {
+                emit_error!(e.span, e.message);
+            });
+        TokenStream::new()
+    } else {
+        render_struct_implementors(
+            types_to_convert,
+            derive_name,
+            mappings.into_iter().filter_map(Result::ok).collect(),
+        )
+    }
 }
 
 fn render_struct_implementors<Field: ToTokens>(

@@ -11,21 +11,8 @@ pub(crate) fn as_name(p: &Path) -> String {
         .join("::")
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ParseError {
     pub message: String,
     pub span: Span,
 }
-
-/*
-enum FieldMetadata {
-    Transform(TransformMetadata),
-    Into(IntoMetadata),
-}
-
-struct TransformMetadata {
-    pub transformation_name: String,
-}
-
-struct IntoMetadata {}
-*/

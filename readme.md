@@ -11,21 +11,24 @@ It might reduce boilerplate under some circumstances.
     - this only works for `struct`s;
     - TypePaths are expected to be "trivial" (no `&`);
 - `#[Into]` to mark which fields need an `Into` conversion;
-    - this can work for `Vec<T>`, `Option<T>`, or `T`.
+    - this can work for `Vec<T>`, `HashSet<T>`, `Option<T>`, or `T`.
 - `#[Transform(<fooPath>)]` to mark which fields need a transformation through a unary function or named unary tuple (useful for `lift` values into `Option`);
 - `#[MacroTransform(<macroPath>)]` to mark which fields will be wrapped inside a macro call (useful for `vec![]`ing single values);
 - `#[From]` for `Enums`
     - `#[Into]`, and `#[Transform]` are not implemented yet.
+- Attribute order and number of occurrences matters:
+  - `#[Into]` must be unique and the first one, if it occurs
+  - `#[Transform]` and `#[MacroTransform]` can appear multiple times; the sooner they appear, the inner they result
+    - for instance: `#[Transform(a)] #[Transform(b)] #[Transform(c)]` results in `c(b(a(<expr>)))`
     
 ## ToDo
-- implement `#[Into]` and `#[Transform]` together, when possible;
 - implement `#[Into]` for enum variants and enum variant fields (semantic difference is not disclosed);
 - implement `#[Transform]` for enum variants and enum variant fields (semantic difference is not disclosed);
 - make `#[Into]` cover other standard examples;
 - create a `#[Unhygienic(...)]` attribute for fields for unhygienic macro expression hacks;
-- **way** better error handling (try to use `Span` and stuff);
-- **way** better code aesthetics;
-- remove all metadata once the macro has finished its work.
+- **way** better error handling (try to use `Span` and stuff); `<-- In progress`
+- **way** better code aesthetics; `<-- in kinda progress`
+- remove all metadata once the macro has finished its work. `<-- Can I really do it?`
 
 ### Demo
 Install `cargo-expand` and then:

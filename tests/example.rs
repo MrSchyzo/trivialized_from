@@ -59,7 +59,8 @@ struct ExampleDomainSubRecord {
 struct ExampleDomainRecord {
     pub name: String,
     #[Transform(example_zerofy)]
-    pub age: u8,
+    #[MacroTransform(vec)]
+    pub age: Vec<u8>,
     #[Into]
     pub maybe_record: Option<ExampleDomainSubRecord>,
     #[Into]
