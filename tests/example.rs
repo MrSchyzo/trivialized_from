@@ -5,6 +5,10 @@ enum ExampleEnum {
     Empty,
     WithSubRecord(ExampleSubRecord),
     WithAgeAndRecord(u8, ExampleSubRecord),
+    Another {
+        age: u8,
+        sub_record: ExampleSubRecord,
+    },
 }
 
 #[allow(unused)]
@@ -28,6 +32,11 @@ enum ExampleDomainEnum {
     #[Into]
     WithSubRecord(ExampleSubRecord),
     WithAgeAndRecord(u8, #[Into] ExampleSubRecord),
+    Another {
+        age: u8,
+        #[Into]
+        sub_record: ExampleSubRecord,
+    },
 }
 
 #[allow(unused)]

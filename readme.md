@@ -31,7 +31,6 @@ It might reduce boilerplate under some circumstances.
 ## ToDo
 - make `#[Into]` cover other standard examples;
 - create a `#[Unhygienic(...)]` attribute for fields for unhygienic macro expression hacks;
-- **way** better error handling (try to use `Span` and stuff); `<-- In progress`
 - **way** better code aesthetics; `<-- in kinda progress`
 - remove all metadata once the macro has finished its work. `<-- Can/Should I really do it?`
 

@@ -52,6 +52,7 @@ pub(crate) enum FieldTransformation {
     MacroTransform(MacroTransformMetadata),
 }
 
+//FIXME: I have introduced duplication :(
 pub(crate) fn render_field_expression(field: &Field) -> Result<TokenStream2, Vec<ParseError>> {
     let name = match field.ident.as_ref() {
         None => {
@@ -68,6 +69,7 @@ pub(crate) fn render_field_expression(field: &Field) -> Result<TokenStream2, Vec
     Ok(quote! {#name: (#field_transform_expression)})
 }
 
+//FIXME: I have introduced duplication :(
 pub(crate) fn render_field_transform_expression(
     name: &Ident,
     field: &Field,
@@ -83,6 +85,44 @@ pub(crate) fn render_field_transform_expression(
 
     Ok(compose_transformations(
         quote! {other.#name},
+        &compute_transformations(field)?,
+        &type_path,
+    ))
+}
+
+//FIXME: I have introduced duplication :(
+pub(crate) fn render_expression(field: &Field) -> Result<TokenStream2, Vec<ParseError>> {
+    let name = match field.ident.as_ref() {
+        None => {
+            return Err(vec![ParseError {
+                message: "Cannot find Identifier of this token".to_owned(),
+                span: field.span().clone(),
+            }])
+        }
+        Some(ident) => ident,
+    };
+
+    let field_transform_expression = render_transform_expression(name, field)?;
+
+    Ok(quote! {#name: (#field_transform_expression)})
+}
+
+//FIXME: I have introduced duplication :(
+pub(crate) fn render_transform_expression(
+    name: &Ident,
+    field: &Field,
+) -> Result<TokenStream2, Vec<ParseError>> {
+    let type_path = if let syn::Type::Path(syn::TypePath { path: p, .. }) = &field.ty {
+        as_name(&p.clone())
+    } else {
+        return Err(vec![ParseError {
+            message: "Unable to extract type from this field".to_owned(),
+            span: field.span().clone(),
+        }]);
+    };
+
+    Ok(compose_transformations(
+        quote! {#name},
         &compute_transformations(field)?,
         &type_path,
     ))

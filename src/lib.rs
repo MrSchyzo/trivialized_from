@@ -4,8 +4,8 @@ extern crate proc_macro;
 extern crate proc_macro_error;
 
 use crate::metadata::attributes::{
-    compose_transformations, parse_transformations, render_field_expression,
-    render_field_transform_expression, FieldTransformation,
+    compose_transformations, parse_transformations, render_expression, render_field_expression,
+    render_transform_expression, FieldTransformation,
 };
 use metadata::attributes::from::FromMetadata;
 use metadata::ParseError;
@@ -15,7 +15,7 @@ use quote::__private::Ident;
 use quote::{quote, ToTokens};
 use syn;
 use syn::spanned::Spanned;
-use syn::{AttrStyle, Attribute, Data, DataEnum, DataStruct, DeriveInput, Field, Type};
+use syn::{AttrStyle, Attribute, Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Type};
 
 #[proc_macro_error]
 #[proc_macro_derive(TrivializationReady, attributes(Into, From, Transform, MacroTransform))]
@@ -81,9 +81,15 @@ fn handle_enum_case(
     let impl_blocks = types_to_convert.iter().map(|ty| {
         let variant_mappings = enumeration.variants.iter().map(|v| {
             let variant_name = &v.ident;
+
             let (transformations, errors): (Vec<_>, Vec<_>) = parse_transformations(&v.attrs).into_iter().partition(Result::is_ok);
             let transformations = transformations.into_iter().filter_map(Result::ok).filter(|r| !(matches!(r, FieldTransformation::Nothing))).collect::<Vec<_>>();
-            let _errors = errors.into_iter().filter_map(Result::err).collect::<Vec<_>>();
+            let errors = errors.into_iter().filter_map(Result::err).collect::<Vec<_>>();
+
+            if errors.len() > 0 {
+                errors.into_iter().for_each(|e: ParseError| emit_error!(e.span, e.message));
+                return quote!()
+            }
 
             let is_there_an_into = transformations.iter().any(|r| matches!(r, FieldTransformation::Into(_)));
             let is_invalid = is_there_an_into && transformations.len() > 1;
@@ -93,17 +99,17 @@ fn handle_enum_case(
                 return quote!()
             }
 
-            if !is_there_an_into && !is_invalid {
+            if !is_there_an_into && !is_invalid && transformations.len() > 0 {
                 let mapping = compose_transformations(quote!(other), &transformations, &ty.to_token_stream().to_string());
-                return if v.fields.len() > 0 {
-                    quote!(#ty::#variant_name(_) => (#mapping))
-                } else {
-                    quote!(#ty::#variant_name => (#mapping))
-                }
+                return match &v.fields {
+                    Fields::Named(_) => quote!(#ty::#variant_name{ .. } => (#mapping)),
+                    Fields::Unnamed(_) => quote!(#ty::#variant_name(_) => (#mapping)),
+                    Fields::Unit => quote!(#ty::#variant_name => (#mapping)),
+                };
             }
 
             let new_fields = &v.fields.iter().enumerate().map(|(i, f): (usize, &Field)| Field {
-                ident: syn::parse_str::<syn::Ident>(&(format!("field_number_{}", i))).ok(),
+                ident: f.ident.clone().or_else(|| syn::parse_str::<syn::Ident>(&(format!("field_number_{}", i))).ok()),
                 attrs: vec![Attribute{
                     pound_token: syn::token::Pound::default(),
                     style: AttrStyle::Outer,
@@ -119,13 +125,23 @@ fn handle_enum_case(
 
             let new_idents = new_fields.iter().map(|f| f.ident.as_ref().unwrap());
 
-            let (expressions, errors): (Vec<_>, Vec<_>) = new_fields.iter().map(|f| render_field_transform_expression(f.ident.as_ref().unwrap(), f)).partition(Result::is_ok);
+            let (expressions, errors): (Vec<_>, Vec<_>) = (match &v.fields {
+                Fields::Named(_) => new_fields.iter().map(|f: &Field| render_expression(f)).collect::<Vec<_>>(),
+                Fields::Unnamed(_) => new_fields.iter().map(|f: &Field| render_transform_expression(f.ident.as_ref().unwrap(), f)).collect::<Vec<_>>(),
+                Fields::Unit => Vec::new(),
+            }).into_iter().partition(Result::is_ok);
             let expressions = expressions.into_iter().filter_map(Result::ok).collect::<Vec<_>>();
-            let _errors = errors.into_iter().filter_map(Result::err).collect::<Vec<_>>();
-            if new_idents.len() > 0 {
-                quote!{#ty::#variant_name(#(#new_idents,)*) => Self::#variant_name(#(#expressions,)*)}
-            } else {
-                quote!{#ty::#variant_name => Self::#variant_name}
+            let errors = errors.into_iter().filter_map(Result::err).collect::<Vec<_>>();
+
+            if errors.len() > 0 {
+                errors.into_iter().flat_map(|f| f).for_each(|e: ParseError| emit_error!(e.span, e.message));
+                return quote!()
+            }
+
+            match &v.fields {
+                Fields::Named(_) => quote!{#ty::#variant_name{#(#new_idents,)*} => Self::#variant_name{#(#expressions,)*}},
+                Fields::Unnamed(_) => quote!{#ty::#variant_name(#(#new_idents,)*) => Self::#variant_name(#(#expressions,)*)},
+                _ => quote!{#ty::#variant_name => Self::#variant_name},
             }
         }).collect::<Vec<_>>();
 
