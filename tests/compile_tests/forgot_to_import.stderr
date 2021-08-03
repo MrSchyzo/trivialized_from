@@ -1,0 +1,11 @@
+error: cannot find derive macro `TrivializationReady` in this scope
+ --> $DIR/forgot_to_import.rs:1:10
+  |
+1 | #[derive(TrivializationReady)]
+  |          ^^^^^^^^^^^^^^^^^^^
+
+error: cannot find attribute `From` in this scope
+ --> $DIR/forgot_to_import.rs:2:3
+  |
+2 | #[From(B)]
+  |   ^^^^
